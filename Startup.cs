@@ -1,16 +1,14 @@
 ﻿namespace WebApi
 {
+    using Microsoft.AspNetCore.Authentication.Cookies;
     using Microsoft.AspNetCore.Builder;
+    using Microsoft.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
+    using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.DependencyInjection;
-    using WebApi.Helpers;
+    using System.IO;
     using WebApi.Services;
-    using Microsoft.IdentityModel.Tokens;
-    using System.Text;
-    using Microsoft.AspNetCore.Authentication.JwtBearer;
-    using Microsoft.AspNetCore.Authentication.Cookies;
-    using Microsoft.AspNetCore.Mvc;
 
     public class Startup
     {
@@ -25,38 +23,37 @@
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddCors();
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
+            services.AddDataProtection()
+                .SetApplicationName("SharedCookieApp");
 
-            // configure strongly typed settings objects
-            var appSettingsSection = Configuration.GetSection("AppSettings");
-            services.Configure<AppSettings>(appSettingsSection);
+            services.ConfigureApplicationCookie(options => {
+                options.Cookie.Domain = ".herokuapp.com";
+                options.Cookie.Name = ".AspNet.SharedCookie";
+            });
 
-            // configure jwt authentication
-            var appSettings = appSettingsSection.Get<AppSettings>();
-            var key = Encoding.ASCII.GetBytes(appSettings.Secret);
+            // Configura authenticação por Cookie
             services.AddAuthentication(x =>
             {
-                //x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                //x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                 x.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                 x.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                 x.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             })
-            .AddCookie(x => x.Cookie.Name = "Authorization");
+            .AddCookie();
 
-            // configure DI for application services
+            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
             services.AddScoped<IUserService, UserService>();
+
+            
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
-            // global cors policy
-            app.UseCors(x => x
+           app.UseCors(x => x
                 .AllowAnyOrigin()
                 .AllowAnyMethod()
                 .AllowAnyHeader());
 
+            //Habilita autenticação
             app.UseAuthentication();
             
             app.UseMvc();
